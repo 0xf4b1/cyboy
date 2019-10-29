@@ -2,6 +2,8 @@
 
 import random
 
+from gameboy.mbc import MBC
+
 """
 General Memory Map
   0000-3FFF   16KB ROM Bank 00     (in cartridge, fixed at bank 00)
@@ -23,7 +25,7 @@ class MMU:
 
     def __init__(self, gameboy, args):
         self.controls = gameboy.controls
-        self.load_rom(args.rom)
+        self.mbc = MBC(args.rom)
 
     ram = bytearray(0x10000)  # 0x0000-0xFFFF
 
@@ -41,9 +43,17 @@ class MMU:
         if addr == 0xFF04:
             return random.randint(0, 0xFF)
 
+        if addr in range(0x7FFF):
+            return self.mbc.read(addr)
+
         return self.ram[addr]
 
     def write(self, addr, value):
+        # cartridge controls
+        if addr in range(0x2000, 0x7FFF):
+            self.mbc.write(addr, value)
+            return
+
         if addr not in range(0x8000, 0x10000):
             return
 
