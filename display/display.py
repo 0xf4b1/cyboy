@@ -41,13 +41,16 @@ class Display:
             y = self.mmu.read(i) - 16
             x = self.mmu.read(i + 1) - 8
             tile = self.mmu.read(i + 2)
+            attr = self.mmu.read(i + 3)
+            x_flip = attr >> 5 & 1
+            y_flip = attr >> 6 & 1
 
             # hidden sprites
             # don't draw sprites that are off-screen
             if y < 0 or y > 144 or x < 0 or x > 160:
                 continue
 
-            self.draw_tile(x, y, 0x8000 + tile * 16, sprite=True)
+            self.draw_tile(x, y, 0x8000 + tile * 16, sprite=True, x_flip=x_flip, y_flip=y_flip)
 
     def draw_bg(self):
         """
@@ -58,7 +61,7 @@ class Display:
             for x in range(32):
                 self.draw_tile(x * 8, y * 8, self.mmu.get_bg_tile(x, y))
 
-    def draw_tile(self, start_x, start_y, tile_addr, sprite=False):
+    def draw_tile(self, start_x, start_y, tile_addr, sprite=False, x_flip=False, y_flip=False):
         """
         Draw 8x8 tile
         """
@@ -67,12 +70,14 @@ class Display:
         palette = self.mmu.read(0xFF47)
 
         for y in range(8):
+
             for x in range(8):
 
                 if y + start_y >= HEIGHT or x + start_x >= WIDTH:
                     continue
 
-                color = ((tile[y * 2] >> (7 - x)) & 1) << 1 | ((tile[y * 2 + 1] >> (7 - x)) & 1)
+                color = ((tile[(y if not y_flip else (7 - y)) * 2] >> ((7 - x) if not x_flip else x)) & 1) << 1 | (
+                            (tile[(y if not y_flip else (7 - y)) * 2 + 1] >> ((7 - x) if not x_flip else x)) & 1)
 
                 color = (palette >> (color * 2)) & 3
 
