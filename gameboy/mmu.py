@@ -111,17 +111,22 @@ class MMU:
     def lcdc(self):
         return self.read(0xFF40)
 
+    def bg_tile_map_display_select(self):
+        return self.lcdc() >> 3 & 1
+
+    def bg_window_tile_data_select(self):
+        return self.lcdc() >> 4 & 1
+
     def tile_data_addr(self):
-        bg_window_tile_data_select = self.lcdc() >> 4 & 1
-        return 0x8000 if bg_window_tile_data_select else 0x9000
+        return 0x8000 if self.bg_window_tile_data_select() else 0x9000
+
+    def bg_map_addr(self):
+        return 0x9C00 if self.bg_tile_map_display_select() else 0x9800
 
     def get_bg_tile(self, x, y):
-        bg_tile_map_display_select = self.lcdc() >> 3 & 1
-        tile_map_addr = 0x9C00 if bg_tile_map_display_select else 0x9800
+        tile = self.ram[self.bg_map_addr() + y * 32 + x]
 
-        tile = self.ram[tile_map_addr + y * 32 + x]
-
-        if bg_tile_map_display_select:
+        if not self.bg_window_tile_data_select() or self.bg_tile_map_display_select():
             # convert to signed
             tile = (tile ^ 0x80) - 128
 
