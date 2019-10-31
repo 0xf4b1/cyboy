@@ -22,9 +22,9 @@ class CPU:
         """
         Resolution   - 160x144 (20x18 tiles)
         """
-        if self.mmu.read(0xFF40) >> 7 == 0:
+        if not self.mmu.lcd_display_enable():
             self.mmu.set_mode(0)
-            self.mmu.set_LCDC_Y(0)
+            self.mmu.set_ly(0)
 
             for i in range(154):
                 self.next_instructions(456)
@@ -32,7 +32,7 @@ class CPU:
 
         # 144 vertical lines
         for i in range(144):
-            self.mmu.set_LCDC_Y(i)
+            self.mmu.set_ly(i)
 
             # MODE 2
             # 77-83 clks
@@ -43,6 +43,7 @@ class CPU:
             # 169-175 clks
             self.mmu.set_mode(3)
             self.next_instructions(172)
+            self.display.params[i] = (self.mmu.scy(), self.mmu.scx(), self.mmu.wy(), self.mmu.wx())
 
             # MODE 0
             # 201-207 clks
@@ -53,7 +54,7 @@ class CPU:
         self.display.draw()
 
         for i in range(144, 153):
-            self.mmu.set_LCDC_Y(i)
+            self.mmu.set_ly(i)
             # MODE 1
             # 4560 clks
             self.mmu.set_mode(1)

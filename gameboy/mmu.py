@@ -94,19 +94,14 @@ class MMU:
         mask = value ^ mode  # XOR with target mode
         self.write(0xFF41, self.read(0xFF41) ^ mask)
 
-    def set_LCDC_Y(self, y):
-        """
-        FF44 - LY - LCDC Y-Coordinate (R) The LY indicates the vertical line to which the present data is transferred
-        to the LCD Driver. The LY can take on any value between 0 through 153. The values between 144 and 153
-        indicate the V-Blank period. Writing will reset the counter.
+    def set_coincidence_flag(self, set):
+        if set:
+            self.write(0xFF41, self.read(0xFF41) | (1 << 2))
+        else:
+            self.write(0xFF41, self.read(0xFF41) & ~(1 << 2))
 
-        :param y: y coordinate
-        """
-
-        self.write(0xFF44, y)
-
-    def set_vblank(self):
-        self.write(0xFF0F, self.read(0xFF0F) | 1)
+    def coincidence_interrupt(self):
+        return self.read(0xFF41) >> 6 & 1
 
     def lcdc(self):
         return self.read(0xFF40)
@@ -116,6 +111,47 @@ class MMU:
 
     def bg_window_tile_data_select(self):
         return self.lcdc() >> 4 & 1
+
+    def lcd_display_enable(self):
+        return self.lcdc() >> 7 & 1
+
+    def ly(self):
+        return self.read(0xFF44)
+
+    def set_ly(self, y):
+        """
+        FF44 - LY - LCDC Y-Coordinate (R) The LY indicates the vertical line to which the present data is transferred
+        to the LCD Driver. The LY can take on any value between 0 through 153. The values between 144 and 153
+        indicate the V-Blank period. Writing will reset the counter.
+
+        :param y: y coordinate
+        """
+
+        self.write(0xFF44, y)
+        self.check_lyc_ly_coincidence()
+
+    def lyc(self):
+        return self.read(0xFF45)
+
+    def check_lyc_ly_coincidence(self):
+        if self.lyc() == self.ly():
+            self.set_coincidence_flag(True)
+            if self.coincidence_interrupt():
+                self.set_lcd_stat()
+        else:
+            self.set_coincidence_flag(False)
+
+    def scy(self):
+        return self.read(0xFF42)
+
+    def scx(self):
+        return self.read(0xFF43)
+
+    def wy(self):
+        return self.read(0xFF4A)
+
+    def wx(self):
+        return self.read(0xFF4B)
 
     def tile_data_addr(self):
         return 0x8000 if self.bg_window_tile_data_select() else 0x9000
@@ -131,3 +167,12 @@ class MMU:
             tile = (tile ^ 0x80) - 128
 
         return self.tile_data_addr() + tile * 16
+
+    def set_vblank(self):
+        self.set_interrupt(0)
+
+    def set_lcd_stat(self):
+        self.set_interrupt(1)
+
+    def set_interrupt(self, value):
+        self.write(0xFF0F, self.read(0xFF0F) | (1 << value))
